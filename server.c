@@ -140,8 +140,7 @@ void initialization_rooms() {
 
 int main() {
     // inizializzazione strutture
-    
-    printf(r1.name, r1.desc);
+    initialization_rooms();
 
     // il server si mette in attesa di un client
 
