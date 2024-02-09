@@ -1,14 +1,14 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=gnu99
 
-all: server client
+all: server
 
-server: server_prova.c
-	$(CC) $(CFLAGS) server_prova.c -o server
+server: server.c
+	$(CC) $(CFLAGS) server.c -o server
 
-client: client_prova.c
-	$(CC) $(CFLAGS) client_prova.c -o client
+client: client
+	$(CC) $(CFLAGS) client.c -o client
 
 # pulizia dei file della compilazione (eseguito con ‘make clean’ da terminale)
 clean:
-	rm *o client server
+	rm *.o client server
