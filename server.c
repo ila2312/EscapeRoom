@@ -162,7 +162,7 @@ void gestione_start(char* room, int sd) {
     send_msg(sd, "Room selezionata: %s \n", selectedRoom.name);
 
     for(int i = 0; i < MAX_ELEM; i++) {
-        if (instances[i].currentState == NOT_IN_USE) {
+        if (is_game_instance_aviable(instances[i])) {
             instances[i] = generate_game(selectedRoom, sd);
             send_msg(sd, "Room selezionata: %s ed iniziata! \n", selectedRoom.name);
             return;
