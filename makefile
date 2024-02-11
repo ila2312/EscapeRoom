@@ -3,10 +3,10 @@ CFLAGS = -Wall -Wextra -std=gnu99
 
 all: server
 
-server: server.c
-	$(CC) $(CFLAGS) server.c -o server
+server: server.c GameData.h GameInstance.h
+	$(CC) $(CFLAGS) $^ -o server
 
-client: client
+client: client.c
 	$(CC) $(CFLAGS) client.c -o client
 
 # pulizia dei file della compilazione (eseguito con ‘make clean’ da terminale)

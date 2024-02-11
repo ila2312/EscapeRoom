@@ -1,76 +1,42 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include "GameData.h"
+#include "GameInstance.h"
 
-#define MAX_ELEM 10
+
 #define DIM_BUFFER 1024
-#define DIM_CMD 4 // i comandi sono al massino di 4 lettere 
+#define DIM_CMD 5 // i comandi sono al massino di 5 lettere
 #define DIM_PARAM 100
 
-struct Enigma {
-    char* text;
-    char* answer;
-};
+#define SINGLE_SERVER_TESTING
 
-enum Status {
-    FREE,           // senza enigma
-    BLOCKED,        // bloccato da enigma -> la risoluzione permette di guadagnare tempo extra
-    BLOCKED_TOKEN,  // enigma e token -> la ricoluzione permette di raccogliere un token
-    TOKEN           // solo token
-};
-
-struct Object {
-    char* name;
-    char* desc;
-    enum Status state;
-    struct Enigma* enigma;
-};
-
-struct Location {
-    char* name;
-    char* desc;
-    int objects_index[MAX_ELEM];
-};
-
-struct Room {
-    char* name;
-    char* desc;
-    char* hint; // suggerimento legato alla room
-    struct Location* locations;
-    struct Object* objects;
-};
 
 // lista delle rooms da caricare (posso avere al massimo max_elem rooms tra cui scegliere)
 struct Room rooms[MAX_ELEM];
+struct GameInstance instances[MAX_ELEM];
 
-// genera una struct di tipo Enigma passandogli i vari campi 
-struct Enigma generate_enigma(char* text, char* answer) {
-    struct Enigma eng;
-    eng.text = text;
-    eng.answer = answer;
-    return eng;
-};
 
-// genera una struct di tipo Object passandogli i vari campi 
-struct Object generate_object(char* name, char* desc, enum Status state, struct Enigma* eng) {
-    struct Object obj;
-    obj.name = name;
-    obj.desc = desc;
-    obj.state = state;
-    obj.enigma = eng;
-    return obj;
-};
 
-// genera una struct di tipo Location passandogli i vari campi 
-struct Location generate_location(char* name, char* desc, int objects_index[]) {
-    struct Location loc;
-    loc.name = name;
-    loc.desc = desc;
-    for (int i=0; i<MAX_ELEM; i++) {
-        loc.objects_index[i] = objects_index[i];
-    }
-    return loc;
-};
+void send_msg(int sd, const char* format, ...) {
+    char buffer[1024];
+
+    va_list args;
+    va_start(args, format);
+
+    // Formattazione della stringa
+    vsnprintf(buffer, sizeof(buffer), format, args);
+
+#ifdef SINGLE_SERVER_TESTING
+    fprintf(stdout, "%s", buffer);
+    return;
+#endif
+
+    // TODO - invia il messaggio al client
+
+    va_end(args);
+}
 
 // inizializzazione della struct Room con la creazione dei vari elementi che la compongono
 void initialization_rooms() {
@@ -81,71 +47,71 @@ void initialization_rooms() {
      fprintf(stderr, "primo enigma\n");
 
     struct Enigma enigma_busta = generate_enigma("Nel silenzio della notte, in una stanza segreta,\n Battiti misteriosi, un segreto da svelare.\n \
-                                                  Sotto il pavimento, il colpevole si confonde,\n ma il suo peccato non può nascondere.\n", 
+                                                  Sotto il pavimento, il colpevole si confonde,\n ma il suo peccato non può nascondere.\n",
                                                  "Il Cuore Rivelatore\n");
 
      fprintf(stderr, "secondo enigma\n");
 
     struct Enigma enigma_scatola = generate_enigma("Tra i muri di pietra, nell\'oscurità profonda,\n Un uomo impazzito, la sua mente sprofonda\n. \
                                                     Ogni battito dell\'orologio, un passo verso il suo destino,\n Nella sua mente tormentata, nessuna via di redenzione.\n\
-                                                    A) Il Gatto Nero  B) Il Ritratto Ovale  C)La Caduta della Casa degli Usher\n", 
+                                                    A) Il Gatto Nero  B) Il Ritratto Ovale  C)La Caduta della Casa degli Usher\n",
                                                    "C\n");
      fprintf(stderr, "terzo enigma\n");
 
-    struct Object chiave = generate_object("chiave", 
+    struct Object chiave = generate_object("chiave",
                                             "una piccola chiave arrugginita: forse serviva ad aprire qualcosa di molto piccolo?\n",
-                                            BLOCKED_TOKEN, 
-                                            &enigma_chiave);  
+                                            BLOCKED_TOKEN,
+                                            &enigma_chiave);
     fprintf(stderr, "primo obj\n");
-    
-    struct Object foglio = generate_object("foglio", 
+
+    struct Object foglio = generate_object("foglio",
                                             "sembra essere una lettera scritta a mano, in bella grafia, sembrerebbe scritta da una donna.\n",
-                                            FREE, 
+                                            FREE,
                                             ((struct Enigma*) NULL));
     fprintf(stderr, "secondo obj\n");
-    struct Object busta = generate_object("busta", 
+    struct Object busta = generate_object("busta",
                                            "la ceralacca sembra spaccata, quindi è stata aperta. Al suo interno pare esserci una lettera anche se poco leggibile.\n",
-                                           BLOCKED, 
-                                           &enigma_busta);   
+                                           BLOCKED,
+                                           &enigma_busta);
     fprintf(stderr, "terzo obj\n");
-    struct Object lettere = generate_object("lettere", 
+    struct Object lettere = generate_object("lettere",
                                              "un pacco di lettere raccolte insieme da un filo di raso rosso scuro con un grande fiocco. Le buste sono molto ingiallite, \
                                              segno del tempo passato e sembrano essere firmate tutte dallo stesso mittente, una donna.\n",
-                                             TOKEN, 
-                                             ((struct Enigma*) NULL));   
+                                             TOKEN,
+                                             ((struct Enigma*) NULL));
     fprintf(stderr, "quarto obj\n");
-    struct Object ceralacca = generate_object("ceralacca", 
+    struct Object ceralacca = generate_object("ceralacca",
                                               "sembrerebbe un kit per bloccare le lettere con la ceralacca: ci sono vari stick colorati di cera e diversi sgilli, \
                                               tutti con la stessa lettera ma decorati diversamente.\n",
-                                              FREE, 
+                                              FREE,
                                               ((struct Enigma*) NULL));      fprintf(stderr, "quinto obj\n");
-    struct Object scatolina = generate_object("scatolina", 
+    struct Object scatolina = generate_object("scatolina",
                                                "una piccola scatolina porta-gioie rivestita di velluto nero. Sul davanti sembra esserci una piccola serratura, forse serve una chiave per aprirla?\n",
-                                               BLOCKED_TOKEN, 
+                                               BLOCKED_TOKEN,
                                                &enigma_scatola);         fprintf(stderr, "sesto obj\n");
 
     int array_camino[] = {0, 1, 2};
-    struct Location camino = generate_location("camino", 
+    struct Location camino = generate_location("camino",
                                                "un tipico camino in pietra, è molto ampio e sembra non essere usato da molto tempo. Al suo interno c\'e\' tanta cenere e alcuni pezzi di legno non del tutto bruciati.\
                                                Tra la cenere possiamo intravedere una **busta** e un **foglio** da lettere parzialmente bruciati e, in un angolo, una piccolissima **chiave**.\n",
                                                array_camino);        fprintf(stderr, "primo loc\n");
     int array_scrivania[] = {3};
-    struct Location scrivania = generate_location("scrivania", 
+    struct Location scrivania = generate_location("scrivania",
                                                   "vecchia scrivania in legno massiccio, non ha cassetti e la superficie pare molto rovinata con grandi graffi profondi e macchie di inchiostro nero. Sopra troviamo un ++cofanetto++ \
                                                   in legno e metallo finemente decorato, decisamente un altro stile rispetto al resto della stanza e una raccolta di **lettere** chiuse con un fiocco.\n",
                                                   array_scrivania);      fprintf(stderr, "seconod loc\n");
     int array_cofanetto[] = {4, 5};
-    struct Location cofanetto = generate_location("cofanetto", 
+    struct Location cofanetto = generate_location("cofanetto",
                                                   "l\'interno è foderato di un tessuto molto lucido, simile alla seta. E\' diviso di 2 scompartimenti: il primo contiene vari strumenti per la **ceralacca** mentre nel secondo troviamo \
                                                   una **scatolina** di vellutto.\n",
                                                   array_cofanetto);          fprintf(stderr, "terzo loc\n");
 
 
     struct Room r1;
-    r1.name = "Baita di legno";
+    r1.name = "Baita";
     r1.desc = "L\'interno della baita e\' caratterizzato da un\'unica stanza. Al centro, un grande ++camino++. \
                In un angolo una vecchia ++scrivania++ in legno. La porta d\'uscita si trova dall\'altra parte della stanza ma è bloccata \
-               e servono 3 token per aprirla\n"; 
+               e servono 3 token per aprirla\n";
     fprintf(stderr, "creazione room \n");
 
 // eventualmente da modificare !!
@@ -178,7 +144,33 @@ void gestione_help(int sd) {
 }
 
 void gestione_start(char* room, int sd) {
-    printf("sono dentro start");
+    printf("sono dentro start con room %s \n", room);
+
+    struct Room selectedRoom;
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (rooms[i].name == NULL) {
+            //siamo arrivati alla fine di quelli inizializzati e non l'abbiamo trovato
+            send_msg(sd, "ERRORE room non valida");
+            return;
+        } else if (strcmp(room, rooms[i].name) == 0) {
+            //abbiamo trovato la room selezionata!
+            selectedRoom = rooms[i];
+            break;
+        }
+    }
+
+    send_msg(sd, "Room selezionata: %s \n", selectedRoom.name);
+
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (instances[i].currentState == NOT_IN_USE) {
+            instances[i] = generate_game(selectedRoom, sd);
+            send_msg(sd, "Room selezionata: %s ed iniziata! \n", selectedRoom.name);
+            return;
+        }
+    }
+
+    send_msg(sd, "ERRORE non ci sono posizioni disponibili, torna più tardi! \n");
+
 }
 
 void gestione_take(char* obj, int sd) {
@@ -211,12 +203,14 @@ void gestione_end(int sd) {
 
 // in base al comando viene chiamata la funzione corrispondente per la gestione
 void gestione_comandi(char* msg, int sd){
-    char cmd[DIM_CMD];
-    char param1[DIM_PARAM];
-    char param2[DIM_PARAM];
-    strcpy(param1, "\0");
-    strcpy(param2, "\0");
+    char cmd[100];
+    char param1[100];
+    char param2[100];
     sscanf(msg, "%s %s %s", cmd, param1, param2);
+
+    printf("comando ricevuto: %s \n", cmd);
+    printf("param1: %s \n", param1);
+    printf("param2: %s \n", param2);
 
     if(strcmp(cmd, "login")==0)
         gestione_login(param1, param2, sd);
@@ -241,8 +235,8 @@ void gestione_comandi(char* msg, int sd){
         gestione_hint(sd);
     else if(strcmp(cmd, "end")==0)
         gestione_end(sd);
-    else 
-        gestione_help(sd); 
+    else
+        gestione_help(sd);
     // se il comando inviato non è nessuno dei precedenti vuol dire che è stato scritto male e quindi invio help
 }
 
@@ -257,8 +251,8 @@ int main() {
 
     fprintf(stderr, "gestione comandi \n");
     // il server si mette in attesa di un client
-    gestione_comandi("start", 12);
+    gestione_comandi("start Baita", 12);
     // gestione comando + gestione fine partita
 
-    // chiusura corretta 
+    // chiusura corretta
 }
