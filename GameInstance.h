@@ -24,11 +24,14 @@ struct GameInstance
 	//TODO - timer.
 };
 
+// genera un istanza del gioco
 struct GameInstance generate_game(struct Room selected, int sd) {
 	struct GameInstance instance;
 	instance.roomSelected = selected;
 	instance.clientSocket = sd;
 	instance.currentState = STARTED;
+	// -1 = spazio libero, altrimenti prende l'indice dell'item
+	// viene fatto perche altrimenti l'array viene inizializzato tutto a 0
 	for(int i = 0; i < INV_SIZE; i++) {
 		instance.itemIds[i] = -1;
 	}
@@ -36,23 +39,27 @@ struct GameInstance generate_game(struct Room selected, int sd) {
 	return instance;
 }
 
-
-int is_game_instance_aviable(struct GameInstance instance) {
+// controlla se l'instanza di gioco è libera 
+int is_game_instance_avaiable(struct GameInstance instance) {
 	return instance.currentState == NOT_IN_USE;
 }
 
 int has_item(struct GameInstance instance, int itemId) {
+	// controllo sull'id passato, id < 0 non ha senso
+	// ritorna -1 se l'id passato è errato
 	if (itemId < 0) {
 		return -1;
 	}
 
+	// ritorna 0 se l'item è presente nell'inventario
 	for(int i = 0; i < INV_SIZE; i++) {
 		if (instance.itemIds[i] == itemId) {
 			return 0;
 		}
 	}
 
-	return itemId;
+	// ritorna 1 se l'item non è nell'inventario 
+	return 1;
 }
 
 int add_item(struct GameInstance instance, int itemId) {
@@ -67,16 +74,22 @@ int add_item(struct GameInstance instance, int itemId) {
 
 int drop_item(struct GameInstance instance, int itemId) {
 	int res = has_item(instance, itemId);
+	// controlla il risultato della has_item che dice se l'item è presente o meno 
 	if (res != 0) {
 		return res;
 	}
 
+	// ritorna 0 se il drop è andato a buon fine 
 	for(int i = 0; i < INV_SIZE; i++) {
 		if (instance.itemIds[i] == itemId) {
 			instance.itemIds[i] = -1;
 			return 0;
 		}
 	}
+
+	// si arriva qua quando non è possibile droppare l'item perche questo non è presente 
+	// teoricamente non ci si arriva mai
+	return 1;
 }
 
 

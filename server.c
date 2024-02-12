@@ -7,7 +7,7 @@
 
 
 #define DIM_BUFFER 1024
-#define DIM_CMD 5 // i comandi sono al massino di 5 lettere
+#define DIM_CMD 100
 #define DIM_PARAM 100
 
 #define SINGLE_SERVER_TESTING
@@ -162,7 +162,7 @@ void gestione_start(char* room, int sd) {
     send_msg(sd, "Room selezionata: %s \n", selectedRoom.name);
 
     for(int i = 0; i < MAX_ELEM; i++) {
-        if (is_game_instance_aviable(instances[i])) {
+        if (is_game_instance_avaiable(instances[i])) {
             instances[i] = generate_game(selectedRoom, sd);
             send_msg(sd, "Room selezionata: %s ed iniziata! \n", selectedRoom.name);
             return;
@@ -203,9 +203,9 @@ void gestione_end(int sd) {
 
 // in base al comando viene chiamata la funzione corrispondente per la gestione
 void gestione_comandi(char* msg, int sd){
-    char cmd[100];
-    char param1[100];
-    char param2[100];
+    char cmd[DIM_CMD];
+    char param1[DIM_PARAM];
+    char param2[DIM_PARAM];
     sscanf(msg, "%s %s %s", cmd, param1, param2);
 
     printf("comando ricevuto: %s \n", cmd);
