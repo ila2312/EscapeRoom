@@ -200,6 +200,7 @@ void gestione_take(char* objName, int sd) {
 
     if (has_item(*instance, itemIndex) == 0) {
         send_msg(sd, "Hai già preso questo item %s \n", objName);
+        return;
     }
 
     if (add_item(instance, itemIndex) != 0) {
