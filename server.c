@@ -17,6 +17,16 @@
 struct Room rooms[MAX_ELEM];
 struct GameInstance instances[MAX_ELEM];
 
+struct GameInstance* get_instance_by_socket(int sd) {
+    struct GameInstance* instance;
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (instances[i].currentState != NOT_IN_USE && instances[i].clientSocket == sd) {
+            instance = &instances[i];
+            break;
+        }
+    }
+    return instance;
+}
 
 
 void send_msg(int sd, const char* format, ...) {
@@ -173,16 +183,59 @@ void gestione_start(char* room, int sd) {
 
 }
 
-void gestione_take(char* obj, int sd) {
-    printf("sono dentro take");
+void gestione_take(char* objName, int sd) {
+    printf("sono dentro take \n");
+
+    struct GameInstance* instance = get_instance_by_socket(sd);
+    if (instance->currentState != STARTED) {
+        send_msg(sd, "Error! no room selected for this socket %d \n", sd);
+        return;
+    }
+
+    int itemIndex = get_object_index(instance->roomSelected, objName);
+    if (itemIndex < 0) {
+        send_msg(sd, "Error! invalid item: %s \n", objName);
+        return;
+    }
+
+    if (has_item(*instance, itemIndex) == 0) {
+        send_msg(sd, "Hai già preso questo item %s \n", objName);
+    }
+
+    if (add_item(instance, itemIndex) != 0) {
+        send_msg(sd, "Error! can't add item: %s \n", objName);
+        //no space ?
+    } else {
+        send_msg(sd, "Preso item: %s \n", objName);
+    }
+
 }
 
 void gestione_look(char* obj, int sd) {
     printf("sono dentro look");
 }
 
-void gestione_drop(char* obj, int sd) {
+void gestione_drop(char* objName, int sd) {
     printf("sono dentro drop");
+
+    struct GameInstance* instance = get_instance_by_socket(sd);
+    if (instance->currentState != STARTED) {
+        send_msg(sd, "Error! no room selected for this socket %d \n", sd);
+        return;
+    }
+
+    int itemIndex = get_object_index(instance->roomSelected, objName);
+    if (itemIndex < 0) {
+        send_msg(sd, "Error! invalid item: %s \n", objName);
+        return;
+    }
+
+    if (drop_item(instance, itemIndex) != 0) {
+        send_msg(sd, "Error! non puoi lasciare questo item: %s \n", objName);
+        //no space ?
+    } else {
+        send_msg(sd, "Item lasciato: %s \n", objName);
+    }
 }
 
 void gestione_use(char* obj1, char* obj2, int sd) {
@@ -251,7 +304,11 @@ int main() {
 
     fprintf(stderr, "gestione comandi \n");
     // il server si mette in attesa di un client
+    gestione_comandi("take foglio", 12);
     gestione_comandi("start Baita", 12);
+    gestione_comandi("take chiave", 12);
+    gestione_comandi("drop foglio", 12);
+    gestione_comandi("drop chiave", 12);
     // gestione comando + gestione fine partita
 
     // chiusura corretta

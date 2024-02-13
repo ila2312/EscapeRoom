@@ -1,6 +1,8 @@
 #ifndef GAME_DATA_H
 #define GAME_DATA_H
 
+#include <string.h>
+
 #define MAX_ELEM 10
 
 struct Enigma {
@@ -65,5 +67,16 @@ struct Location generate_location(char* name, char* desc, int objects_index[]) {
     }
     return loc;
 };
+
+int get_object_index(struct Room room, char* objName) {
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (room.objects[i].name == NULL) {
+            break;
+        } else if (strcmp(room.objects[i].name, objName) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 #endif
