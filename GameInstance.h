@@ -18,7 +18,7 @@ struct GameInstance
 	enum GameState currentState;
 	int clientSocket;
 
-	int itemIds[INV_SIZE]
+	int itemIds[INV_SIZE];
 	// -1 se non ha item, altrimenti indice dell'item.
 
 	//TODO - timer.
