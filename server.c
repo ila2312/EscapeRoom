@@ -244,7 +244,33 @@ void gestione_use(char* obj1, char* obj2, int sd) {
 }
 
 void gestione_objs(int sd) {
-    printf("sono dentro objs");
+    fprintf(stderr, "sono dentro objs \n");
+
+    struct GameInstance* instance = get_instance_by_socket(sd);
+    if (instance->currentState != STARTED) {
+        send_msg(sd, "Error! no room selected for this socket %d \n", sd);
+        return;
+    }
+
+    char listOfObjs[1024] = "\0";
+
+    int hasitems = -1;
+    for (int i = 0; i < INV_SIZE; i++) {
+        if (instance->itemIds[i] != -1) {
+            hasitems = 0;
+            strcat(listOfObjs, instance->roomSelected.objects[instance->itemIds[i]].name);
+            strcat(listOfObjs, "\n");
+        }
+    }
+
+    if (hasitems == 0) {
+        strcat(listOfObjs, "\0");
+        send_msg(sd, "List of Items: \n%s \n", listOfObjs);
+    } else {
+        send_msg(sd, "you have no items \n");
+    }
+
+
 }
 
 void gestione_hint(int sd) {
@@ -305,11 +331,10 @@ int main() {
 
     fprintf(stderr, "gestione comandi \n");
     // il server si mette in attesa di un client
-    gestione_comandi("take foglio", 12);
     gestione_comandi("start Baita", 12);
+    gestione_comandi("take foglio", 12);
     gestione_comandi("take chiave", 12);
-    gestione_comandi("drop foglio", 12);
-    gestione_comandi("drop chiave", 12);
+    gestione_comandi("objs", 12);
     // gestione comando + gestione fine partita
 
     // chiusura corretta
