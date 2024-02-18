@@ -2,8 +2,11 @@
 #define GAME_INSTANCE_H
 
 #include "GameData.h"
+#include <time.h>
 
 #define INV_SIZE 4
+#define MAX_TIME (60 * 5)
+//time in seconds for max duration
 
 enum GameState {
 	NOT_IN_USE,
@@ -21,7 +24,7 @@ struct GameInstance
 	int itemIds[INV_SIZE];
 	// -1 se non ha item, altrimenti indice dell'item.
 
-	//TODO - timer.
+	time_t starting_time
 };
 
 // genera un istanza del gioco
@@ -30,6 +33,9 @@ struct GameInstance generate_game(struct Room selected, int sd) {
 	instance.roomSelected = selected;
 	instance.clientSocket = sd;
 	instance.currentState = STARTED;
+	instance.starting_time = time(NULL);
+	//in C99 we can  use time() instead in C89 we should use Clock() which is less accurate
+
 	// -1 = spazio libero, altrimenti prende l'indice dell'item
 	// viene fatto perche altrimenti l'array viene inizializzato tutto a 0
 	for(int i = 0; i < INV_SIZE; i++) {
@@ -92,6 +98,13 @@ int drop_item(struct GameInstance* instance, int itemId) {
 	return 1;
 }
 
+
+int has_timer_ended(struct GameInstance instance) {
+	time_t current_time = time(NULL);
+	double timeDiff = difftime(instance.starting_time, current_time);
+
+	return timeDiff >= MAX_TIME;
+}
 
 
 #endif

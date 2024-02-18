@@ -374,6 +374,14 @@ int main() {
     gestione_comandi("take chiave", 12);
     gestione_comandi("objs", 12);
     gestione_comandi("hint", 12);
+
+    // TODO - this should be done when receaving each command by each client!
+    struct GameInstance*  instance = get_instance_by_socket(12);
+    if (has_timer_ended(*instance)) {
+        printf("Time is ended! \n");
+    } else {
+        printf("Time is NOT ended! \n");
+    }
     // gestione comando + gestione fine partita
 
     // chiusura corretta
