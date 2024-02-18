@@ -79,4 +79,15 @@ int get_object_index(struct Room room, char* objName) {
     return -1;
 }
 
+int get_location_index(struct Room room, char* locName) {
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (room.locations[i].name == NULL) {
+            break;
+        } else if (strcmp(room.locations[i].name, locName) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 #endif
