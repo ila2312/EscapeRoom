@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include "GameData.h"
 #include "GameInstance.h"
+#include "UserData.h"
 
 
 #define DIM_BUFFER 1024
@@ -17,6 +18,7 @@
 // lista delle rooms da caricare (posso avere al massimo max_elem rooms tra cui scegliere)
 struct Room rooms[MAX_ELEM];
 struct GameInstance instances[MAX_ELEM];
+struct UserData users[MAX_ELEM];
 
 struct GameInstance* get_instance_by_socket(int sd) {
     struct GameInstance* instance;
