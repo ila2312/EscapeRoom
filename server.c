@@ -18,13 +18,35 @@
 // lista delle rooms da caricare (posso avere al massimo max_elem rooms tra cui scegliere)
 struct Room rooms[MAX_ELEM];
 struct GameInstance instances[MAX_ELEM];
-struct UserData users[MAX_ELEM];
+struct User users[MAX_ELEM];
 
 struct GameInstance* get_instance_by_socket(int sd) {
-    struct GameInstance* instance;
+    struct GameInstance* instance = NULL;
     for(int i = 0; i < MAX_ELEM; i++) {
         if (instances[i].currentState != NOT_IN_USE && instances[i].clientSocket == sd) {
             instance = &instances[i];
+            break;
+        }
+    }
+    return instance;
+}
+
+struct User* get_user_by_socket(int sd) {
+    struct User* instance = NULL;
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (users[i].state != UNREGISTERED && users[i].socketId == sd) {
+            instance = &users[i];
+            break;
+        }
+    }
+    return instance;
+}
+
+struct User* get_user_by_name(char* name) {
+    struct User* instance = NULL;
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (users[i].state != UNREGISTERED && strcmp(users[i].name, name) == 0) {
+            instance = &users[i];
             break;
         }
     }
@@ -144,11 +166,58 @@ void initialization_rooms() {
 }
 
 void gestione_login(char* name, char* password, int sd) {
-    printf("sono dentro login");
+    printf("sono dentro login \n");
+
+    if (name == NULL || password == NULL || strlen(name) == 0 || strlen(password) == 0) {
+        send_msg(sd, "Invalid username or password\n");
+        return;
+    }
+
+    struct User* connectedUser = get_user_by_name(name);
+    if (connectedUser == NULL) {
+        send_msg(sd, "il nome utente %s non corrisponde a nessun utente| prima registrare il nuovo utente con il comando singup \n", name);
+        return;
+    }
+
+    int res = login_user(connectedUser, name, password);
+    if (res < 0) {
+        send_msg(sd,"User %s is not OFFLINE \n", connectedUser->name);
+        return;
+    } else if (res > 0) {
+        send_msg(sd,"Invalid Password per utente %s \n", connectedUser->name);
+        return;
+    }
+
+    send_msg(sd,"Utente %s Loggato! \n", connectedUser->name);
+    connectedUser->socketId = sd;
+
 }
 
 void gestione_signup(char* name, char* password, int sd) {
-    printf("sono dentro signup");
+    printf("sono dentro signup \n");
+
+    if (name == NULL || password == NULL || strlen(name) == 0 || strlen(password) == 0) {
+        send_msg(sd, "Invalid username or password\n");
+        return;
+    }
+
+    struct User* connectedUser = get_user_by_socket(sd);
+    if (connectedUser != NULL) {
+        send_msg(sd, "User is already connected with user name: %s \n", connectedUser->name);
+        return;
+    }
+
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (users[i].state == UNREGISTERED) {
+            users[i] = register_new_user(name, password);
+            users[i].socketId = sd;
+            send_msg(sd,"New user registered with name: %s \n", name);
+            return;
+        }
+    }
+
+    send_msg(sd, "Unable to create a new username! please try later! \n");
+
 }
 
 void gestione_help(int sd) {
@@ -384,7 +453,11 @@ int main() {
     } else {
         printf("Time is NOT ended! \n");
     }
-    // gestione comando + gestione fine partita
 
+    gestione_comandi("login fabio 1234", 12);
+    gestione_comandi("signup fabio 1234", 12);
+    gestione_comandi("login fabio 1234", 12);
+    // gestione comando + gestione fine partita
+    printf("STOP! \n");
     // chiusura corretta
 }
