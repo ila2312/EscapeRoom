@@ -34,8 +34,9 @@ struct Room {
     char* name;
     char* desc;
     char* hint; // suggerimento legato alla room
-    struct Location* locations;
-    struct Object* objects;
+    struct Location locations[MAX_ELEM];
+    struct Object objects[MAX_ELEM];
+    //TODO - aggiungere locationSize e objectsSize!
 };
 
 

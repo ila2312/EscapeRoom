@@ -148,11 +148,9 @@ void initialization_rooms() {
                e servono 3 token per aprirla\n";
 
 // eventualmente da modificare !!
-    r1.locations = malloc(sizeof(struct Location) * 3);
     r1.locations[0] = camino;
     r1.locations[1] = scrivania;
     r1.locations[2] = cofanetto;
-    r1.objects = malloc(sizeof(struct Object) * 6);
     r1.objects[0] = chiave;
     r1.objects[1] = foglio;
     r1.objects[2] = busta;
