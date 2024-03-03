@@ -64,7 +64,7 @@ void send_msg(int sd, const char* format, ...) {
     vsnprintf(buffer, sizeof(buffer), format, args);
 
 #ifdef SINGLE_SERVER_TESTING
-    fprintf(stdout, "%s", buffer);
+    fprintf(stderr, "%s", buffer);
     return;
 #endif
 
@@ -210,7 +210,7 @@ void gestione_signup(char* name, char* password, int sd) {
     for(int i = 0; i < MAX_ELEM; i++) {
         if (users[i].state == UNREGISTERED) {
             users[i] = register_new_user(name, password);
-            users[i].socketId = sd;
+            //users[i].socketId = sd;
             send_msg(sd,"New user registered with name: %s \n", name);
             return;
         }
@@ -384,6 +384,14 @@ void gestione_end(int sd) {
     printf("sono dentro end");
 }
 
+int gestione_utente(int sd) {
+    struct User* connectedUser = get_user_by_socket(sd);
+    if (connectedUser != NULL) {
+        return 0;
+    }
+    return -1;
+}
+
 // in base al comando viene chiamata la funzione corrispondente per la gestione
 void gestione_comandi(char* msg, int sd){
     char cmd[DIM_CMD] = "\0";
@@ -403,27 +411,34 @@ void gestione_comandi(char* msg, int sd){
         gestione_login(param1, param2, sd);
     else if(strcmp(cmd, "signup")==0)
         gestione_signup(param1, param2, sd);
-
     else if(strcmp(cmd, "help")==0)
         gestione_help(sd);
-    else if(strcmp(cmd, "start")==0)
-        gestione_start(param1, sd);
-    else if(strcmp(cmd, "take")==0)
-        gestione_take(param1, sd);
-    else if(strcmp(cmd, "look")==0)
-        gestione_look(param1, sd);
-    else if(strcmp(cmd, "drop")==0)
-        gestione_drop(param1, sd);
-    else if(strcmp(cmd, "use")==0)
-        gestione_use(param1, param2, sd);
-    else if(strcmp(cmd, "objs")==0)
-        gestione_objs(sd);
-    else if(strcmp(cmd, "hint")==0)
-        gestione_hint(sd);
-    else if(strcmp(cmd, "end")==0)
-        gestione_end(sd);
-    else
-        gestione_help(sd);
+    else {
+        if (gestione_utente(sd) != 0) {
+            send_msg(sd, "L'utente deve essere loggato per effettuare altri comandi! \n");
+            return;
+        }
+
+        if(strcmp(cmd, "start")==0)
+            gestione_start(param1, sd);
+        else if(strcmp(cmd, "take")==0)
+            gestione_take(param1, sd); //TODO - gestire Enigma/UseList e condizioni di vittoria della partita
+        else if(strcmp(cmd, "look")==0)
+            gestione_look(param1, sd);
+        else if(strcmp(cmd, "drop")==0)
+            gestione_drop(param1, sd);
+        else if(strcmp(cmd, "use")==0) //TODO - gestire UseList
+            gestione_use(param1, param2, sd);
+        else if(strcmp(cmd, "objs")==0)
+            gestione_objs(sd);
+        else if(strcmp(cmd, "hint")==0)
+            gestione_hint(sd);
+        else if(strcmp(cmd, "end")==0) //TODO - gestire chiusura forzata della partita da parte del client
+            gestione_end(sd);
+        else
+            gestione_help(sd);
+    }
+
     // se il comando inviato non è nessuno dei precedenti vuol dire che è stato scritto male e quindi invio help
 }
 
@@ -438,6 +453,10 @@ int main() {
 
     fprintf(stderr, "gestione comandi \n");
     // il server si mette in attesa di un client
+    gestione_comandi("login fabio 1234", 12);
+    gestione_comandi("signup fabio 1234", 12);
+    gestione_comandi("login fabio 1234", 12);
+
     gestione_comandi("start Baita", 12);
     gestione_comandi("take foglio", 12);
     gestione_comandi("look camino", 12);
@@ -447,17 +466,17 @@ int main() {
     gestione_comandi("hint", 12);
 
     // TODO - this should be done when receaving each command by each client!
-    struct GameInstance*  instance = get_instance_by_socket(12);
+    /*struct GameInstance*  instance = get_instance_by_socket(12);
     if (has_timer_ended(*instance)) {
         printf("Time is ended! \n");
     } else {
         printf("Time is NOT ended! \n");
-    }
+    }*/
 
-    gestione_comandi("login fabio 1234", 12);
-    gestione_comandi("signup fabio 1234", 12);
-    gestione_comandi("login fabio 1234", 12);
     // gestione comando + gestione fine partita
     printf("STOP! \n");
     // chiusura corretta
+
+    // per controllare la memoria.
+    //valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./server
 }
