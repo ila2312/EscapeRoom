@@ -36,15 +36,16 @@ struct Room {
     char* hint; // suggerimento legato alla room
     struct Location locations[MAX_ELEM];
     struct Object objects[MAX_ELEM];
-    //TODO - aggiungere locationSize e objectsSize!
+    int locationSize;
+    int objectsSize;
 };
 
 
 // genera una struct di tipo Enigma passandogli i vari campi
-struct Enigma generate_enigma(char* text, char* answer) {
-    struct Enigma eng;
-    eng.text = text;
-    eng.answer = answer;
+struct Enigma* generate_enigma(char* text, char* answer) {
+    struct Enigma* eng = (struct Enigma*) malloc(sizeof(struct Enigma));
+    eng->text = text;
+    eng->answer = answer;
     return eng;
 };
 
@@ -69,8 +70,15 @@ struct Location generate_location(char* name, char* desc, int objects_index[]) {
     return loc;
 };
 
+int min(int valueA, int valueB) {
+    if (valueA > valueB) {
+        return valueB;
+    }
+    return valueA;
+}
+
 int get_object_index(struct Room room, char* objName) {
-    for(int i = 0; i < MAX_ELEM; i++) {
+    for(int i = 0; i < min(MAX_ELEM, room.objectsSize); i++) {
         if (room.objects[i].name == NULL) {
             break;
         } else if (strcmp(room.objects[i].name, objName) == 0) {
@@ -81,7 +89,7 @@ int get_object_index(struct Room room, char* objName) {
 }
 
 int get_location_index(struct Room room, char* locName) {
-    for(int i = 0; i < MAX_ELEM; i++) {
+    for(int i = 0; i < min(MAX_ELEM, room.locationSize); i++) {
         if (room.locations[i].name == NULL) {
             break;
         } else if (strcmp(room.locations[i].name, locName) == 0) {

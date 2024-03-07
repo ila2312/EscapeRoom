@@ -75,27 +75,27 @@ void send_msg(int sd, const char* format, ...) {
 
 // inizializzazione della struct Room con la creazione dei vari elementi che la compongono
 void initialization_rooms() {
-    struct Enigma enigma_chiave = generate_enigma("Nella notte oscura e nel giorno chiaro,\n Un uccello nero con voce rara.\n \
+    struct Enigma* enigma_chiave = generate_enigma("Nella notte oscura e nel giorno chiaro,\n Un uccello nero con voce rara.\n \
                                                    \'Nevermore\', grida con aria mesta,\n Il suo richiamo sfida la nostra testa.\n",
-                                                  "Il Corvo\n");
+                                                  "Il Corvo");
 
 
-    struct Enigma enigma_busta = generate_enigma("Nel silenzio della notte, in una stanza segreta,\n Battiti misteriosi, un segreto da svelare.\n \
+    struct Enigma* enigma_busta = generate_enigma("Nel silenzio della notte, in una stanza segreta,\n Battiti misteriosi, un segreto da svelare.\n \
                                                   Sotto il pavimento, il colpevole si confonde,\n ma il suo peccato non può nascondere.\n",
-                                                 "Il Cuore Rivelatore\n");
+                                                 "Il Cuore Rivelatore");
 
 
 
-    struct Enigma enigma_scatola = generate_enigma("Tra i muri di pietra, nell\'oscurità profonda,\n Un uomo impazzito, la sua mente sprofonda\n. \
+    struct Enigma* enigma_scatola = generate_enigma("Tra i muri di pietra, nell\'oscurità profonda,\n Un uomo impazzito, la sua mente sprofonda\n. \
                                                     Ogni battito dell\'orologio, un passo verso il suo destino,\n Nella sua mente tormentata, nessuna via di redenzione.\n\
                                                     A) Il Gatto Nero  B) Il Ritratto Ovale  C)La Caduta della Casa degli Usher\n",
-                                                   "C\n");
+                                                   "C");
 
 
     struct Object chiave = generate_object("chiave",
                                             "una piccola chiave arrugginita: forse serviva ad aprire qualcosa di molto piccolo?\n",
                                             BLOCKED_TOKEN,
-                                            &enigma_chiave);
+                                            enigma_chiave);
 
 
     struct Object foglio = generate_object("foglio",
@@ -106,7 +106,7 @@ void initialization_rooms() {
     struct Object busta = generate_object("busta",
                                            "la ceralacca sembra spaccata, quindi è stata aperta. Al suo interno pare esserci una lettera anche se poco leggibile.\n",
                                            BLOCKED,
-                                           &enigma_busta);
+                                           enigma_busta);
 
     struct Object lettere = generate_object("lettere",
                                              "un pacco di lettere raccolte insieme da un filo di raso rosso scuro con un grande fiocco. Le buste sono molto ingiallite, \
@@ -122,7 +122,7 @@ void initialization_rooms() {
     struct Object scatolina = generate_object("scatolina",
                                                "una piccola scatolina porta-gioie rivestita di velluto nero. Sul davanti sembra esserci una piccola serratura, forse serve una chiave per aprirla?\n",
                                                BLOCKED_TOKEN,
-                                               &enigma_scatola);
+                                               enigma_scatola);
 
     int array_camino[] = {0, 1, 2};
     struct Location camino = generate_location("camino",
@@ -151,12 +151,14 @@ void initialization_rooms() {
     r1.locations[0] = camino;
     r1.locations[1] = scrivania;
     r1.locations[2] = cofanetto;
+    r1.locationSize = 3;
     r1.objects[0] = chiave;
     r1.objects[1] = foglio;
     r1.objects[2] = busta;
     r1.objects[3] = lettere;
     r1.objects[4] = ceralacca;
     r1.objects[5] = scatolina;
+    r1.objectsSize = 6;
     r1.hint = "cerca dentro al camino";
 
     rooms[0] = r1;
@@ -272,11 +274,43 @@ void gestione_take(char* objName, int sd) {
         return;
     }
 
+    if (instance->roomSelected.objects[itemIndex].enigma != NULL) {
+        //Gestire Enigma
+        instance->activeEnigma = instance->roomSelected.objects[itemIndex].enigma;
+        instance->itemIdWithActiveEnigma = itemIndex;
+        send_msg(sd, "Devi risolvere prima questo enigma: %s", instance->roomSelected.objects[itemIndex].enigma->text);
+        return;
+    }
+
     if (add_item(instance, itemIndex) != 0) {
         send_msg(sd, "Error! can't add item: %s \n", objName);
         //no space ?
     } else {
         send_msg(sd, "Preso item: %s \n", objName);
+    }
+
+}
+
+void gestione_enigma(char *answer, int sd) {
+    fprintf(stderr, "sono dentro gestione_enigma \n");
+
+    struct GameInstance* instance = get_instance_by_socket(sd);
+    if (instance->currentState != STARTED) {
+        send_msg(sd, "Error! no room selected for this socket %d \n", sd);
+        return;
+    }
+
+    if (strcmp(instance->activeEnigma->answer, answer) == 0) {
+        instance->activeEnigma = NULL;
+        //corretto
+        if (add_item(instance, instance->itemIdWithActiveEnigma) != 0) {
+            send_msg(sd, "Corretto! ma inventario pieno!\n");
+            //no space ?
+        } else {
+            send_msg(sd, "Corretto! \nItem preso\n");
+        }
+    } else {
+        send_msg(sd, "Risposta scorretta! \n");
     }
 
 }
@@ -433,6 +467,8 @@ void gestione_comandi(char* msg, int sd){
             gestione_hint(sd);
         else if(strcmp(cmd, "end")==0) //TODO - gestire chiusura forzata della partita da parte del client
             gestione_end(sd);
+        else if (has_active_enigma(get_instance_by_socket(sd)))
+            gestione_enigma(msg, sd);
         else
             gestione_help(sd);
     }
@@ -456,12 +492,15 @@ int main() {
     gestione_comandi("login fabio 1234", 12);
 
     gestione_comandi("start Baita", 12);
-    gestione_comandi("take foglio", 12);
-    gestione_comandi("look camino", 12);
+    gestione_comandi("take scatolina", 12);
+    gestione_comandi("C", 12);
     gestione_comandi("look chiave", 12);
     gestione_comandi("take chiave", 12);
+    gestione_comandi("Il Corvo", 12);
     gestione_comandi("objs", 12);
     gestione_comandi("hint", 12);
+
+    //TODO - aggiungere pulizia della memoria per gli Enigmi.
 
     // TODO - this should be done when receaving each command by each client!
     /*struct GameInstance*  instance = get_instance_by_socket(12);

@@ -24,7 +24,10 @@ struct GameInstance
 	int itemIds[INV_SIZE];
 	// -1 se non ha item, altrimenti indice dell'item.
 
-	time_t starting_time
+	time_t starting_time;
+
+	struct Enigma* activeEnigma;
+	int itemIdWithActiveEnigma;
 };
 
 // genera un istanza del gioco
@@ -96,6 +99,10 @@ int drop_item(struct GameInstance* instance, int itemId) {
 	// si arriva qua quando non è possibile droppare l'item perche questo non è presente
 	// teoricamente non ci si arriva mai
 	return 1;
+}
+
+int has_active_enigma(struct GameInstance* instance) {
+	return instance != NULL && instance->activeEnigma != NULL;
 }
 
 
