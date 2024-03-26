@@ -22,12 +22,20 @@ struct User
 
 
 struct User register_new_user(char* name, char* password) {
-	struct User user;
-	user.name = name;
-	user.password = password;
-	user.socketId = -1;
-	user.state = OFFLINE;
-	return user;
+	struct User* user = malloc(sizeof(struct User));
+	user->name = malloc(strlen(name) + 1);
+	user->password = malloc(strlen(password) + 1);
+	strcpy(user->name, name);
+	strcpy(user->password, password);
+	user->socketId = -1;
+	user->state = OFFLINE;
+	return *user;
+}
+
+void clean_up_user(struct User* user) {
+	free(user->name);
+	free(user->password);
+	free(user);
 }
 
 //restituisce -1 se utente non è offline, 1 se nome o password sono sbagliate, 0 altrimenti
@@ -56,6 +64,10 @@ int quit_user(struct User* user, char* name) {
 	}
 
 	return 1;
+}
+
+int is_user_online(struct User* user) {
+	return user != NULL && user->state == ONLINE;
 }
 
 

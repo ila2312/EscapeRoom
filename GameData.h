@@ -2,6 +2,7 @@
 #define GAME_DATA_H
 
 #include <string.h>
+#include <stdlib.h>
 
 #define MAX_ELEM 10
 
@@ -97,6 +98,14 @@ int get_location_index(struct Room room, char* locName) {
         }
     }
     return -1;
+}
+
+void clean_up_room(struct Room room) {
+    for(int i = 0; i < min(MAX_ELEM, room.objectsSize); i++) {
+        if (room.objects[i].enigma != NULL) {
+            free(room.objects[i].enigma);
+        }
+    }
 }
 
 #endif

@@ -2,6 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h> // read(), write(), close()
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "GameData.h"
 #include "GameInstance.h"
 #include "UserData.h"
@@ -12,13 +17,22 @@
 #define DIM_PARAM 100
 
 #define SINGLE_SERVER_TESTING
-//#define PRINT_COMMAND_RICEAVED
+#define PRINT_COMMAND_RICEAVED
+
+
+void recv_msg(int sd, char* buffer);
 
 
 // lista delle rooms da caricare (posso avere al massimo max_elem rooms tra cui scegliere)
 struct Room rooms[MAX_ELEM];
 struct GameInstance instances[MAX_ELEM];
 struct User users[MAX_ELEM];
+
+
+//variabile per controllare se il server è già stato avviato
+int server_started=0;
+int listener, fdmax, ret;
+fd_set master, read_fds;
 
 struct GameInstance* get_instance_by_socket(int sd) {
     struct GameInstance* instance = NULL;
@@ -55,20 +69,45 @@ struct User* get_user_by_name(char* name) {
 
 
 void send_msg(int sd, const char* format, ...) {
-    char buffer[1024];
-
+    char message[1024];
+    char buffer[1024 * 2];
     va_list args;
     va_start(args, format);
+    //il formato della risposta sarà:
+	// <UtenteLoggato> | <PartitaIniziata> | <TokenMassimi> | <TokenOttenuti> | <msg....>
 
     // Formattazione della stringa
-    vsnprintf(buffer, sizeof(buffer), format, args);
+    vsnprintf(message, sizeof(message), format, args);
+
+    struct User* currentUser = get_user_by_socket(sd);
+    struct GameInstance* currentInstance = get_instance_by_socket(sd);
+    int partitaIniziata = (currentInstance != NULL) && (currentInstance->currentState == STARTED);
+    int tokenMassimi = (currentInstance != NULL) ? get_number_of_tokens(currentInstance) : 0;
+    int tokenOttenuti = (currentInstance != NULL) ? get_number_of_collected_tokens(currentInstance) : 0;
+    sprintf(buffer, "%d | %d | %d | %d | %s \0", is_user_online(currentUser),  partitaIniziata, tokenMassimi, tokenOttenuti, message);
+
 
 #ifdef SINGLE_SERVER_TESTING
-    fprintf(stderr, "%s", buffer);
-    return;
+    fprintf(stderr, "UtenteLoggato: %d | PartitaIniziata: %d | TokenTotali: %d | TokenOttenuti: %d | %s", is_user_online(currentUser),  partitaIniziata, tokenMassimi, tokenOttenuti, message);
+    //return;
 #endif
 
-    // TODO - invia il messaggio al client
+    int len;
+    uint16_t lmsg;
+	len=strlen(buffer)+1;
+	lmsg=htons(len);
+
+    ret=send(sd, (void*)&lmsg, sizeof(uint16_t), 0);
+	if(ret==-1) {
+		perror("Errore: ");
+		exit(1);
+    }
+    ret=send(sd, (void*)buffer, len, 0);
+    if(ret==-1) {
+        perror("Errore: ");
+        exit(1);
+    }
+
 
     va_end(args);
 }
@@ -91,6 +130,10 @@ void initialization_rooms() {
                                                     A) Il Gatto Nero  B) Il Ritratto Ovale  C)La Caduta della Casa degli Usher\n",
                                                    "C");
 
+    struct Enigma* enigma_lettere = generate_enigma("Completa la frase:\n \
+                                                    Nel salone desolato, tra le sfumature del destino, uno sguardo immortale rivela il suo segreto: 'La bellezza del...",
+                                                    "ritratto ovale");
+
 
     struct Object chiave = generate_object("chiave",
                                             "una piccola chiave arrugginita: forse serviva ad aprire qualcosa di molto piccolo?\n",
@@ -112,7 +155,7 @@ void initialization_rooms() {
                                              "un pacco di lettere raccolte insieme da un filo di raso rosso scuro con un grande fiocco. Le buste sono molto ingiallite, \
                                              segno del tempo passato e sembrano essere firmate tutte dallo stesso mittente, una donna.\n",
                                              TOKEN,
-                                             ((struct Enigma*) NULL));
+                                             enigma_lettere);
 
     struct Object ceralacca = generate_object("ceralacca",
                                               "sembrerebbe un kit per bloccare le lettere con la ceralacca: ci sono vari stick colorati di cera e diversi sgilli, \
@@ -165,6 +208,18 @@ void initialization_rooms() {
     fprintf(stderr, "Init completata! \n");
 }
 
+void cleanups() {
+    //puliamo solo la prima stanza per ora
+    clean_up_room(rooms[0]);
+
+    for(int i = 0; i < MAX_ELEM; i++) {
+        if (users[i].state != UNREGISTERED) {
+            //se ha uno stato diverso da UNREGISTERED, dobbiamo pulire la memoria.
+            clean_up_user(&users[i]);
+        }
+    }
+}
+
 void gestione_login(char* name, char* password, int sd) {
     printf("sono dentro login \n");
 
@@ -175,7 +230,7 @@ void gestione_login(char* name, char* password, int sd) {
 
     struct User* connectedUser = get_user_by_name(name);
     if (connectedUser == NULL) {
-        send_msg(sd, "il nome utente %s non corrisponde a nessun utente| prima registrare il nuovo utente con il comando singup \n", name);
+        send_msg(sd, "il nome utente %s non corrisponde a nessun utente. prima registrare il nuovo utente con il comando singup \n", name);
         return;
     }
 
@@ -188,8 +243,8 @@ void gestione_login(char* name, char* password, int sd) {
         return;
     }
 
-    send_msg(sd,"Utente %s Loggato! \n", connectedUser->name);
     connectedUser->socketId = sd;
+    send_msg(sd,"Utente %s Loggato! \n", connectedUser->name);
 
 }
 
@@ -240,7 +295,7 @@ void gestione_start(char* room, int sd) {
         }
     }
 
-    send_msg(sd, "Room selezionata: %s \n", selectedRoom.name);
+    //send_msg(sd, "Room selezionata: %s \n", selectedRoom.name);
 
     for(int i = 0; i < MAX_ELEM; i++) {
         if (is_game_instance_avaiable(instances[i])) {
@@ -416,6 +471,26 @@ void gestione_end(int sd) {
     printf("sono dentro end");
 }
 
+void gestione_fine_partita(int sd) {
+    printf("sono dentro fine_partita");
+
+    struct GameInstance* instance = get_instance_by_socket(sd);
+    if (instance->currentState != STARTED) {
+        send_msg(sd, "Error! no room selected for this socket %d \n", sd);
+    }
+
+    if (has_player_won(instance)) {
+        send_msg(sd, "Hai vinto! \n");
+        //TODO - pulire memoria e chiudere connessione.
+        return;
+    }
+
+    if (has_timer_ended(*instance)) {
+        send_msg(sd, "Hai perso! \n");
+        //TODO - pulire memoria e chiudere connessione.
+    }
+}
+
 int gestione_utente(int sd) {
     struct User* connectedUser = get_user_by_socket(sd);
     if (connectedUser != NULL) {
@@ -471,21 +546,45 @@ void gestione_comandi(char* msg, int sd){
             gestione_enigma(msg, sd);
         else
             gestione_help(sd);
+
+        gestione_fine_partita(sd);
     }
 
     // se il comando inviato non è nessuno dei precedenti vuol dire che è stato scritto male e quindi invio help
 }
 
 
+void gestione_listener() {
+    struct sockaddr_in cl_addr, listener_client;
+	socklen_t addrlen;
+	int newfd;
+    char buffer[DIM_BUFFER];
+    char ip_str[DIM_BUFFER];
+
+	addrlen = sizeof(cl_addr);
+    //il server accetta le richieste solo se è stato avviato
+    if(server_started==1){
+	    newfd = accept(listener, (struct sockaddr *)&cl_addr, &addrlen);
+	    if(newfd < 0){
+            perror("Errore: ");
+            exit(1);
+        }
+        FD_SET(newfd, &master);
+
+	    if(newfd > fdmax){
+	    	fdmax = newfd;
+	    }
+	    printf("Nuovo client connesso, socket %d\n", newfd);
+    }
+}
 
 
-
-int main() {
+int main(int argc, char* argv[]) {
     // inizializzazione strutture
     fprintf(stderr, "start \n");
     initialization_rooms();
 
-    fprintf(stderr, "gestione comandi \n");
+    /* fprintf(stderr, "gestione comandi \n");
     // il server si mette in attesa di un client
     gestione_comandi("login fabio 1234", 12);
     gestione_comandi("signup fabio 1234", 12);
@@ -498,10 +597,79 @@ int main() {
     gestione_comandi("take chiave", 12);
     gestione_comandi("Il Corvo", 12);
     gestione_comandi("objs", 12);
-    gestione_comandi("hint", 12);
+    gestione_comandi("hint", 12); */
 
-    //TODO - aggiungere pulizia della memoria per gli Enigmi.
+    int i, port, time_expired;
+	struct sockaddr_in sv_addr;
 
+	//se c'è un argomento sarà il numero di porta altrimenti 4242
+	if(argc>1)
+		port=atoi(argv[1]);
+	else port=4242;
+
+    listener=socket(AF_INET, SOCK_STREAM, 0);
+	memset(&sv_addr, 0, sizeof(sv_addr));
+	sv_addr.sin_family=AF_INET;
+	sv_addr.sin_port=htons(port);
+	sv_addr.sin_addr.s_addr=INADDR_ANY;
+
+	ret=bind(listener, (struct sockaddr*) &sv_addr, sizeof(sv_addr));
+	if(ret==-1) {
+		perror("Error: ");
+		exit(1);
+    }
+	ret=listen(listener, 5);
+    if(ret==-1) {
+        perror("Error: ");
+        exit(1);
+    }
+
+	//Inizializzazione dei set di file descriptor e della variabile fdmax per la funzione select
+ 	FD_ZERO(&master);
+ 	FD_ZERO(&read_fds);
+ 	FD_SET(0, &master); //standard input ha FD 0
+ 	FD_SET(listener, &master);
+ 	fdmax = listener;
+
+
+	while(server_started==0){
+        server_started = 1;
+        printf("Server forzatamente attivato \n");
+		//gestione_stdin_server();
+	}
+
+	while(server_started==1){
+		read_fds = master;
+
+		ret = select(fdmax+1, &read_fds, NULL, NULL, NULL);
+
+		if(ret < 0){
+			perror("Error: ");
+			exit(1);
+		}
+
+ 		for(i = 0; i <= fdmax; i++) {
+ 			if(FD_ISSET(i, &read_fds)) {
+ 				if(i == 0) // standard input ha FD 0
+ 					//gestione_stdin_server();
+                    printf("gestione_stdin_server \n");
+ 				else{
+                    if(i == listener) // Socket di ascolto
+ 					    gestione_listener();
+ 				    else {                   // Socket di comunicazione
+                        printf("gestione_client %d \n", i);
+                        char cmd[DIM_CMD];
+                        recv_msg(i, cmd);
+                        gestione_comandi(cmd, i);
+                        //time_expired=gestione_timer(i); //prima di eseguire il comando inviato da un giocatore controllo che non abbia esaurito il tempo
+                        //if(!time_expired){
+                            //check_win(i);
+                        //}
+                    }
+                }
+			}
+		}
+	}
     // TODO - this should be done when receaving each command by each client!
     /*struct GameInstance*  instance = get_instance_by_socket(12);
     if (has_timer_ended(*instance)) {
@@ -514,6 +682,26 @@ int main() {
     printf("STOP! \n");
     // chiusura corretta
 
+    cleanups();
+
     // per controllare la memoria.
     //valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./server
 }
+
+
+void recv_msg(int sd, char* buffer){
+    int len;
+	uint16_t lmsg;
+    ret=recv(sd, (void*)&lmsg, sizeof(uint16_t), 0);
+	if(ret==-1) {
+        perror("Errore: ");
+        exit(1);
+    }
+	len=ntohs(lmsg);
+    ret=recv(sd, (void*)buffer, len, 0);
+    if(ret==-1){
+        perror("Errore: ");
+        exit(1);
+    }
+}
+

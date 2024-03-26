@@ -44,7 +44,6 @@ struct GameInstance generate_game(struct Room selected, int sd) {
 	for(int i = 0; i < INV_SIZE; i++) {
 		instance.itemIds[i] = -1;
 	}
-	//TODO - timer.
 	return instance;
 }
 
@@ -111,6 +110,32 @@ int has_timer_ended(struct GameInstance instance) {
 	double timeDiff = difftime(instance.starting_time, current_time);
 
 	return timeDiff >= MAX_TIME;
+}
+
+int get_number_of_tokens(struct GameInstance* instance) {
+    int count = 0;
+    for(int i = 0; i < instance->roomSelected.objectsSize; i++) {
+		if (instance->roomSelected.objects[i].state == BLOCKED_TOKEN) {
+			count++;
+		}
+    }
+    return count;
+}
+
+int get_number_of_collected_tokens(struct GameInstance* instance) {
+    int count = 0;
+    for(int i = 0; i < INV_SIZE; i++) {
+       if (instance->itemIds[i] != -1) {
+			if (instance->roomSelected.objects[instance->itemIds[i]].state == BLOCKED_TOKEN) {
+				count++;
+			}
+		}
+    }
+    return count;
+}
+
+int has_player_won(struct GameInstance* instance) {
+	return get_number_of_collected_tokens(instance) == get_number_of_tokens(instance);
 }
 
 
